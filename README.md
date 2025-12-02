@@ -2,12 +2,11 @@ Shopify Analytics Dashboard(Xeno FDE-Assignment)
 
 A full-stack analytics application that ingests Shopify store data, stores it in a multi-tenant PostgreSQL database, and visualizes insights such as revenue trends, order analytics, top customers, and product performance.
 
-🚀 Features Implemented
-Backend (Node.js + Express + Prisma + PostgreSQL)
+             🚀 Features Implemented
+             Backend (Node.js + Express + Prisma + PostgreSQL)
+             ✔ Multi-tenant database design
 
-✔ Multi-tenant database design
-
-✔ Ingestion API: fetches products, orders & customers per tenant
+             ✔ Ingestion API: fetches products, orders & customers per tenant
 
 ✔ Summary & analytics endpoints (revenue, customers, orders, products)
 
@@ -38,3 +37,5 @@ Frontend (Next.js + React + Recharts)
 ✔ Add Tenant page (store name, shop URL, access token)
 
 ✔ Fully responsive UI with modern dark theme
+
+
