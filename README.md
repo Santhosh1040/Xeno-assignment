@@ -25,7 +25,7 @@ This project was developed using the following technologies:
 - PostgreSQL  
 - Node-Cron  
 
-<h2>✨ Features</h2>
+<h2>Features</h2>
 
 - Multi-tenant database model  
 - Add new Shopify tenants (store name, shop URL, access token)  
@@ -37,5 +37,22 @@ This project was developed using the following technologies:
 - Top Products Table  
 - Lightweight email-based login (demo authentication)  
 
+---
+
+<h2>Setup Instructions</h2>
+
+<h3>Backend</h3>
+
+```bash
+cd backend
+npm install
+npx prisma migrate dev
+node prisma/seed.js
+npm run dev
+
+<h3>Frontend</h3>
+cd frontend
+npm install
+npm run dev
 
 
