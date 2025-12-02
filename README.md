@@ -41,20 +41,24 @@ This project was developed using the following technologies:
 
 <h2>Setup Instructions</h2>
 
-
 <h3>Backend</h3>
 
-```bash
+<pre>
 cd backend
 npm install
 npx prisma migrate dev
 node prisma/seed.js
 npm run dev
+</pre>
 
 <h3>Frontend</h3>
+
+<pre>
 cd frontend
 npm install
 npm run dev
+</pre>
+
 
 
 
