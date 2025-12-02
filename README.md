@@ -87,7 +87,67 @@ npm run dev
 
 <h2 id="schema">Database Schema</h2>
 
-<p>The system follows a <strong>multi-tenant database design</strong>, where every record is linked to a <code>tenantId</code>.</p>
+<p>The system uses a <strong>multi-tenant PostgreSQL schema</strong> where every record is linked to a <code>tenantId</code>.  
+Below is the simplified Prisma schema for the project:</p>
+
+<pre>
+
+<code>
+// Tenant stores Shopify store credentials
+model Tenant {
+  id          Int      @id @default(autoincrement())
+  name        String
+  shopUrl     String
+  accessToken String
+  createdAt   DateTime @default(now())
+
+  products Product[]
+  customers Customer[]
+  orders   Order[]
+}
+
+// Product catalog imported from Shopify
+model Product {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  title     String
+  price     Float
+  imageUrl  String?
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+// Customers belonging to a tenant
+model Customer {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  name      String
+  email     String?
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  orders    Order[]
+}
+
+// Orders placed by customers
+model Order {
+  id         Int      @id @default(autoincrement())
+  tenantId   Int
+  customerId Int
+  date       DateTime
+  totalPrice Float
+  Tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
+}
+</code>
+
+</pre>
+
+<p><strong>Key relationships:</strong></p>
+
+<ul>
+  <li>Each <code>Tenant</code> has multiple <code>Products</code>, <code>Customers</code>, and <code>Orders</code>.</li>
+  <li>Each <code>Order</code> belongs to one <code>Customer</code> and one <code>Tenant</code>.</li>
+  <li>All tables include <code>tenantId</code> ensuring strict data separation.</li>
+</ul>
+
 
 
 <h2 id="limitations">Known Limitations / Assumptions</h2>
