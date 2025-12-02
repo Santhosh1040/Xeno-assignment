@@ -60,6 +60,25 @@ npm run dev
 </pre>
 
 
+<h2>Architecture Diagram</h2>
+                +------------------+
+                |   Next.js App    |
+                |  (Frontend UI)   |
+                +---------+--------+
+                          |
+                          | Axios (API calls)
+                          v
+               +----------+-----------+
+               |   Node.js + Express  |
+               |      Backend API     |
+               +----------+-----------+
+                          |
+                          | Prisma ORM
+                          v
+                 +--------+--------+
+                 |   PostgreSQL    |
+                 | Multi-Tenant DB |
+                 +-----------------+
 
 
 
