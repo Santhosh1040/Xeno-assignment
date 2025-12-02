@@ -1,30 +1,40 @@
 Shopify Analytics Dashboard(Xeno FDE-Assignment)
 
-A full-stack analytics dashboard that ingests Shopify data, stores it in a multi-tenant DB, and visualizes insights such as revenue trends, orders per day, top customers, and top products.
+A full-stack analytics application that ingests Shopify store data, stores it in a multi-tenant PostgreSQL database, and visualizes insights such as revenue trends, order analytics, top customers, and product performance.
 
 🚀 Features Implemented
 Backend (Node.js + Express + Prisma + PostgreSQL)
 
-Multi-tenant database design
+✔ Multi-tenant database design
 
-Ingestion API: reads products, orders & customers from Shopify
+✔ Ingestion API: fetches products, orders & customers per tenant
 
-Summaries & analytics endpoints
+✔ Summary & analytics endpoints (revenue, customers, orders, products)
 
-Cron-based automatic syncing
+✔ Orders-by-date API powering trend charts
 
-Seed script generating demo tenants & mock Shopify-like data
+✔ Cron-based automatic syncing
+
+✔ Manual “Sync now” trigger
+
+✔ Prisma seed script generating 2 demo tenants with mock Shopify-style data
+
+✔ Secure environment variable configuration
 
 Frontend (Next.js + React + Recharts)
 
-Multi-tenant dashboard
+✔ Lightweight email-based login persisted using localStorage
 
-Email-based lightweight login
+✔ Multi-tenant dashboard (switch between stores)
 
-Trend charts (Orders & Revenue)
+✔ KPI cards: Total Revenue, Total Orders, Total Customers, Total Products
 
-Top customers & top products tables
+✔ Trend chart (Orders & Revenue over time)
 
-“Sync now” button to trigger ingestion
+✔ Top Customers & Top Products tables
 
-“Add tenant” form (store name, shop URL, access token)
+✔ “Sync Now” to trigger ingestion
+
+✔ Add Tenant page (store name, shop URL, access token)
+
+✔ Fully responsive UI with modern dark theme
