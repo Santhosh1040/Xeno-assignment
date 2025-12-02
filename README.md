@@ -62,7 +62,7 @@ npm run dev
 
 <h2>Architecture Diagram</h2>
 
-<h2 id="api">📡 API Endpoints</h2>
+<h2 id="api">API Endpoints</h2>
 
 <p>This project exposes the following backend API endpoints:</p>
 
