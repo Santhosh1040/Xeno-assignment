@@ -61,24 +61,90 @@ npm run dev
 
 
 <h2>Architecture Diagram</h2>
-                +------------------+
-                |   Next.js App    |
-                |  (Frontend UI)   |
-                +---------+--------+
-                          |
-                          | Axios (API calls)
-                          v
-               +----------+-----------+
-               |   Node.js + Express  |
-               |      Backend API     |
-               +----------+-----------+
-                          |
-                          | Prisma ORM
-                          v
-                 +--------+--------+
-                 |   PostgreSQL    |
-                 | Multi-Tenant DB |
-                 +-----------------+
+
+<h2 id="api">📡 API Endpoints</h2>
+
+<p>This project exposes the following backend API endpoints:</p>
+
+<h3>🟦 Tenants</h3>
+<ul>
+  <li><code>POST /api/tenants</code> — Create a new tenant (store name, URL, access token)</li>
+  <li><code>GET /api/tenants</code> — List all tenants</li>
+</ul>
+
+<h3>🟦 Ingestion APIs</h3>
+<ul>
+  <li><code>POST /api/ingest/:tenantId/sync</code> — Trigger manual sync for orders, customers, products</li>
+</ul>
+
+<h3>🟦 Metrics & Analytics</h3>
+<ul>
+  <li><code>GET /api/metrics/:tenantId/summary</code> — Total customers, orders, revenue, products</li>
+  <li><code>GET /api/metrics/:tenantId/orders-by-date</code> — Orders & revenue trend (date-wise)</li>
+  <li><code>GET /api/metrics/:tenantId/top-customers</code> — Top customers ranked by revenue</li>
+  <li><code>GET /api/metrics/:tenantId/top-products</code> — Top products ranked by price/value</li>
+</ul>
+
+<h2 id="schema">🗂️ Database Schema</h2>
+
+<p>The system follows a <strong>multi-tenant database design</strong>, where every record is linked to a <code>tenantId</code>.</p>
+
+model Tenant {
+  id          Int      @id @default(autoincrement())
+  name        String
+  shopUrl     String
+  accessToken String
+  products    Product[]
+  customers   Customer[]
+  orders      Order[]
+  createdAt   DateTime @default(now())
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  title     String
+  price     Float
+  imageUrl  String?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  name      String
+  email     String?
+  orders    Order[]
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model Order {
+  id         Int      @id @default(autoincrement())
+  tenantId   Int
+  customerId Int
+  amount     Float
+  date       DateTime
+  customer   Customer @relation(fields: [customerId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+}
+<h2 id="limitations">⚠️ Known Limitations / Assumptions</h2>
+
+<ul>
+  <li>This project uses <strong>mock Shopify data</strong> (via seed script) since real Shopify API access requires partner app permissions.</li>
+
+  <li>Email authentication is implemented in a <strong>lightweight demo mode</strong> (any email is accepted). No password or verification is implemented.</li>
+
+  <li>Syncing is simulated. Real Shopify OAuth & webhooks are not implemented in this prototype.</li>
+
+  <li>The dashboard UI is optimized for desktop — mobile responsiveness is partial.</li>
+
+  <li>CRON sync runs locally using <code>node-cron</code>; it is not persisted in Vercel deployment (cron jobs need a server).</li>
+
+  <li>No role-based access control (RBAC). Any authenticated email sees the same tenants.</li>
+
+  <li>Error handling is minimal in the prototype (limited retry logic for API failures).</li>
+</ul>
+
 
 
 
