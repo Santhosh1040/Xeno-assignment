@@ -15,9 +15,33 @@ const PORT = process.env.PORT || 4000;
 /* ========================
    MIDDLEWARE
 ========================= */
+
+// Allow localhost + optional FRONTEND_ORIGIN (Vercel URL)
+// In non-production, we’re lenient to avoid CORS pain.
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.FRONTEND_ORIGIN, // e.g. https://xeno-assignment.vercel.app
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "http://localhost:3000", // allow Next.js frontend
+    origin: (origin, callback) => {
+      // Allow server-to-server / curl / Postman (no origin header)
+      if (!origin) return callback(null, true);
+
+      const isAllowed = allowedOrigins.includes(origin);
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+
+      // In dev, allow any origin to keep things simple
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
