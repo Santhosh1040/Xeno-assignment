@@ -1,17 +1,20 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Xeno FDE Assignment Backend - Shopify Analytics",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed": "node prisma/seed.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^4.15.0",
     "axios": "^1.13.2",
     "body-parser": "^2.2.1",
     "cors": "^2.8.5",
@@ -20,7 +23,6 @@
     "node-cron": "^4.2.1"
   },
   "devDependencies": {
-    "@prisma/client": "^4.15.0",
     "nodemon": "^3.1.11",
     "prisma": "^4.15.0"
   }
