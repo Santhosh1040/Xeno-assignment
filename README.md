@@ -62,6 +62,14 @@ npm run dev
 
 <h2>Architecture Diagram</h2>
 
+<p align="center">
+  <img src="Architecture.png" alt="System Architecture Diagram" width="700"/>
+</p>
+
+<p align="center">
+  High-level architecture showing the flow between Frontend, Backend API, Cron Jobs, Prisma ORM, PostgreSQL DB, and Mock Shopify Data.
+</p>
+
 <h2 id="api">API Endpoints</h2>
 
 <p>This project exposes the following backend API endpoints:</p>
