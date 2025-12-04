@@ -11,39 +11,19 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 4000;
-
 /* ========================
    MIDDLEWARE
 ========================= */
 
-// Allowed frontend origins
-const allowedOrigins = [
-  "http://localhost:3000",
-  process.env.FRONTEND_ORIGIN, // e.g. https://xeno-assignment.vercel.app
-].filter(Boolean);
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow server-to-server / curl / Postman
-      if (!origin) return callback(null, true);
-
-      const isAllowed = allowedOrigins.includes(origin);
-
-      if (isAllowed) return callback(null, true);
-
-      // In non-prod, be lenient to avoid CORS headaches
-      if (process.env.NODE_ENV !== "production") {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS"));
-    },
+    origin: true, // allow any origin (Vercel + localhost)
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
 
 app.use(bodyParser.json());
+
 
 /* ========================
    ROOT ROUTE
