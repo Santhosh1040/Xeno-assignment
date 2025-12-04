@@ -16,8 +16,7 @@ const PORT = process.env.PORT || 4000;
    MIDDLEWARE
 ========================= */
 
-// Allow localhost + optional FRONTEND_ORIGIN (Vercel URL)
-// In non-production, we’re lenient to avoid CORS pain.
+// Allowed frontend origins
 const allowedOrigins = [
   "http://localhost:3000",
   process.env.FRONTEND_ORIGIN, // e.g. https://xeno-assignment.vercel.app
@@ -26,16 +25,12 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server / curl / Postman (no origin header)
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // allow curl/Postman
 
       const isAllowed = allowedOrigins.includes(origin);
 
-      if (isAllowed) {
-        return callback(null, true);
-      }
+      if (isAllowed) return callback(null, true);
 
-      // In dev, allow any origin to keep things simple
       if (process.env.NODE_ENV !== "production") {
         return callback(null, true);
       }
@@ -49,6 +44,13 @@ app.use(
 app.use(bodyParser.json());
 
 /* ========================
+   ROOT ROUTE (FIXED)
+========================= */
+app.get("/", (req, res) => {
+  res.send("✅ Xeno Assignment Backend is running successfully");
+});
+
+/* ========================
    1. HEALTH ENDPOINT
 ========================= */
 app.get("/health", (req, res) => {
@@ -59,7 +61,6 @@ app.get("/health", (req, res) => {
    2. TENANT APIS
 ========================= */
 
-// List all tenants (for dropdown / admin)
 app.get("/api/tenants", async (req, res) => {
   try {
     const tenants = await prisma.tenant.findMany({
@@ -72,7 +73,6 @@ app.get("/api/tenants", async (req, res) => {
   }
 });
 
-// Create a tenant (used by admin UI)
 app.post("/api/tenants", async (req, res) => {
   try {
     const { name, shopUrl, accessToken } = req.body;
@@ -95,7 +95,7 @@ app.post("/api/tenants", async (req, res) => {
 });
 
 /* =====================================================
-   3. FETCH SHOPIFY DATA (Products, Customers, Orders)
+   3. FETCH SHOPIFY DATA
 ===================================================== */
 async function fetchShopifyData(tenantId) {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -105,7 +105,6 @@ async function fetchShopifyData(tenantId) {
   }
 
   const base = `https://${tenant.shopUrl}/admin/api/2024-01`;
-
   const headers = {
     "X-Shopify-Access-Token": tenant.accessToken,
     "Content-Type": "application/json",
@@ -137,7 +136,6 @@ async function ingestShopifyData(tenantId, data) {
 
   const { products, customers, orders } = data;
 
-  // PRODUCTS
   for (const p of products) {
     try {
       await prisma.product.upsert({
@@ -158,7 +156,6 @@ async function ingestShopifyData(tenantId, data) {
     }
   }
 
-  // CUSTOMERS
   for (const c of customers) {
     try {
       await prisma.customer.upsert({
@@ -182,7 +179,6 @@ async function ingestShopifyData(tenantId, data) {
     }
   }
 
-  // ORDERS
   for (const o of orders) {
     try {
       await prisma.order.upsert({
@@ -214,7 +210,6 @@ async function ingestShopifyData(tenantId, data) {
 app.post("/api/ingest/:tenantId/sync", async (req, res) => {
   try {
     const tenantId = Number(req.params.tenantId);
-    console.log("Manual sync requested for tenant", tenantId);
 
     const data = await fetchShopifyData(tenantId);
     await ingestShopifyData(tenantId, data);
@@ -255,163 +250,9 @@ app.get("/api/metrics/:tenantId/summary", async (req, res) => {
 });
 
 /* ===============================================
-   6b. ORDERS BY DATE (for charts)
+   CRON JOB (every 10 mins)
 =============================================== */
-app.get("/api/metrics/:tenantId/orders-by-date", async (req, res) => {
-  try {
-    const tenantId = Number(req.params.tenantId);
-
-    const orders = await prisma.order.findMany({
-      where: { tenantId },
-      select: {
-        orderDate: true,
-        totalPrice: true,
-      },
-      orderBy: { orderDate: "asc" },
-    });
-
-    const byDate = {};
-
-    for (const o of orders) {
-      if (!o.orderDate) continue;
-      const d = o.orderDate.toISOString().slice(0, 10); // YYYY-MM-DD
-
-      if (!byDate[d]) {
-        byDate[d] = { date: d, orders: 0, revenue: 0 };
-      }
-
-      byDate[d].orders += 1;
-      byDate[d].revenue += Number(o.totalPrice || 0);
-    }
-
-    const result = Object.values(byDate).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-
-    res.json(result);
-  } catch (err) {
-    console.error("GET /api/metrics/:tenantId/orders-by-date error:", err);
-    res.status(500).json({ error: "Failed to compute orders by date" });
-  }
-});
-
-/* ===============================================
-   6c. TOP CUSTOMERS (leaderboard)
-=============================================== */
-app.get("/api/metrics/:tenantId/top-customers", async (req, res) => {
-  try {
-    const tenantId = Number(req.params.tenantId);
-
-    const orders = await prisma.order.findMany({
-      where: {
-        tenantId,
-        customerId: { not: null },
-      },
-      select: {
-        customerId: true,
-        totalPrice: true,
-      },
-    });
-
-    if (!orders.length) {
-      return res.json([]);
-    }
-
-    const byCustomer = new Map();
-
-    for (const o of orders) {
-      const key = o.customerId;
-      if (!key) continue;
-
-      const curr = byCustomer.get(key) || { orders: 0, revenue: 0 };
-      curr.orders += 1;
-      curr.revenue += Number(o.totalPrice || 0);
-      byCustomer.set(key, curr);
-    }
-
-    const customerIds = Array.from(byCustomer.keys());
-
-    const customers = await prisma.customer.findMany({
-      where: {
-        tenantId,
-        id: { in: customerIds },
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-      },
-    });
-
-    const result = customers.map((c) => {
-      const agg = byCustomer.get(c.id) || { orders: 0, revenue: 0 };
-
-      const name =
-        c.firstName || c.lastName
-          ? `${c.firstName || ""} ${c.lastName || ""}`.trim()
-          : c.email || "Unknown";
-
-      return {
-        id: c.id,
-        name,
-        email: c.email,
-        orders: agg.orders,
-        revenue: agg.revenue,
-      };
-    });
-
-    result.sort((a, b) => b.revenue - a.revenue);
-
-    res.json(result.slice(0, 5));
-  } catch (err) {
-    console.error("GET /api/metrics/:tenantId/top-customers error:", err);
-    res.status(500).json({ error: "Failed to compute top customers" });
-  }
-});
-
-/* ===============================================
-   6d. TOP PRODUCTS (leaderboard)
-=============================================== */
-app.get("/api/metrics/:tenantId/top-products", async (req, res) => {
-  try {
-    const tenantId = Number(req.params.tenantId);
-
-    const products = await prisma.product.findMany({
-      where: { tenantId },
-      select: {
-        id: true,
-        title: true,
-        price: true,
-      },
-    });
-
-    if (!products.length) {
-      return res.json([]);
-    }
-
-    const result = products
-      .map((p) => ({
-        id: p.id,
-        title: p.title,
-        price: Number(p.price || 0),
-        imageUrl: null,
-      }))
-      .sort((a, b) => b.price - a.price)
-      .slice(0, 5);
-
-    res.json(result);
-  } catch (err) {
-    console.error("GET /api/metrics/:tenantId/top-products error:", err);
-    res.status(500).json({ error: "Failed to compute top products" });
-  }
-});
-
-/* =====================================================
-   7. CRON JOB (sync all tenants every 10 mins)
-===================================================== */
 cron.schedule("*/10 * * * *", async () => {
-  console.log("Cron: Syncing all tenants");
   try {
     const tenants = await prisma.tenant.findMany();
     for (const t of tenants) {
@@ -421,6 +262,15 @@ cron.schedule("*/10 * * * *", async () => {
   } catch (err) {
     console.error("CRON sync error:", err);
   }
+});
+
+/* ===============================================
+   GRACEFUL SHUTDOWN (IMPORTANT FOR RAILWAY)
+=============================================== */
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received. Closing Prisma...");
+  await prisma.$disconnect();
+  process.exit(0);
 });
 
 /* ===============================================
