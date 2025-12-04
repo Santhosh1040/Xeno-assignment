@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const  API =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "https://xeno-assignment-production-9fa6.up.railway.app";
+
 
 export default function NewTenantPage() {
   const router = useRouter();
