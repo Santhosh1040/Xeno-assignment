@@ -13,8 +13,9 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+const API =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 type Summary = {
   totalCustomers: number;
