@@ -25,12 +25,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow curl/Postman
+      // Allow server-to-server / curl / Postman
+      if (!origin) return callback(null, true);
 
       const isAllowed = allowedOrigins.includes(origin);
 
       if (isAllowed) return callback(null, true);
 
+      // In non-prod, be lenient to avoid CORS headaches
       if (process.env.NODE_ENV !== "production") {
         return callback(null, true);
       }
@@ -44,7 +46,7 @@ app.use(
 app.use(bodyParser.json());
 
 /* ========================
-   ROOT ROUTE (FIXED)
+   ROOT ROUTE
 ========================= */
 app.get("/", (req, res) => {
   res.send("✅ Xeno Assignment Backend is running successfully");
@@ -61,6 +63,7 @@ app.get("/health", (req, res) => {
    2. TENANT APIS
 ========================= */
 
+// List all tenants
 app.get("/api/tenants", async (req, res) => {
   try {
     const tenants = await prisma.tenant.findMany({
@@ -73,6 +76,7 @@ app.get("/api/tenants", async (req, res) => {
   }
 });
 
+// Create tenant
 app.post("/api/tenants", async (req, res) => {
   try {
     const { name, shopUrl, accessToken } = req.body;
@@ -134,8 +138,9 @@ async function fetchShopifyData(tenantId) {
 async function ingestShopifyData(tenantId, data) {
   if (!data) return;
 
-  const { products, customers, orders } = data;
+  const { products = [], customers = [], orders = [] } = data;
 
+  // PRODUCTS
   for (const p of products) {
     try {
       await prisma.product.upsert({
@@ -156,6 +161,7 @@ async function ingestShopifyData(tenantId, data) {
     }
   }
 
+  // CUSTOMERS
   for (const c of customers) {
     try {
       await prisma.customer.upsert({
@@ -179,6 +185,7 @@ async function ingestShopifyData(tenantId, data) {
     }
   }
 
+  // ORDERS
   for (const o of orders) {
     try {
       await prisma.order.upsert({
@@ -186,7 +193,7 @@ async function ingestShopifyData(tenantId, data) {
         update: {
           totalPrice: Number(o.total_price || 0),
           orderDate: new Date(o.created_at),
-          customerId: o.customer ? o.customer.id : null,
+          customerId: o.customer ? o.customer.id : null, // depends on your Prisma schema
         },
         create: {
           shopifyId: String(o.id),
@@ -250,10 +257,164 @@ app.get("/api/metrics/:tenantId/summary", async (req, res) => {
 });
 
 /* ===============================================
+   6b. ORDERS BY DATE (for chart)
+=============================================== */
+app.get("/api/metrics/:tenantId/orders-by-date", async (req, res) => {
+  try {
+    const tenantId = Number(req.params.tenantId);
+
+    const orders = await prisma.order.findMany({
+      where: { tenantId },
+      select: {
+        orderDate: true,
+        totalPrice: true,
+      },
+      orderBy: { orderDate: "asc" },
+    });
+
+    const byDate = {};
+
+    for (const o of orders) {
+      if (!o.orderDate) continue;
+      const d = o.orderDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      if (!byDate[d]) {
+        byDate[d] = { date: d, orders: 0, revenue: 0 };
+      }
+
+      byDate[d].orders += 1;
+      byDate[d].revenue += Number(o.totalPrice || 0);
+    }
+
+    const result = Object.values(byDate).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    res.json(result);
+  } catch (err) {
+    console.error("GET /api/metrics/:tenantId/orders-by-date error:", err);
+    res.status(500).json({ error: "Failed to compute orders by date" });
+  }
+});
+
+/* ===============================================
+   6c. TOP CUSTOMERS
+=============================================== */
+app.get("/api/metrics/:tenantId/top-customers", async (req, res) => {
+  try {
+    const tenantId = Number(req.params.tenantId);
+
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        customerId: { not: null },
+      },
+      select: {
+        customerId: true,
+        totalPrice: true,
+      },
+    });
+
+    if (!orders.length) {
+      return res.json([]);
+    }
+
+    const byCustomer = new Map();
+
+    for (const o of orders) {
+      const key = o.customerId;
+      if (!key) continue;
+
+      const curr = byCustomer.get(key) || { orders: 0, revenue: 0 };
+      curr.orders += 1;
+      curr.revenue += Number(o.totalPrice || 0);
+      byCustomer.set(key, curr);
+    }
+
+    const customerIds = Array.from(byCustomer.keys());
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        tenantId,
+        id: { in: customerIds },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    });
+
+    const result = customers.map((c) => {
+      const agg = byCustomer.get(c.id) || { orders: 0, revenue: 0 };
+
+      const name =
+        c.firstName || c.lastName
+          ? `${c.firstName || ""} ${c.lastName || ""}`.trim()
+          : c.email || "Unknown";
+
+      return {
+        id: c.id,
+        name,
+        email: c.email,
+        orders: agg.orders,
+        revenue: agg.revenue,
+      };
+    });
+
+    result.sort((a, b) => b.revenue - a.revenue);
+
+    res.json(result.slice(0, 5));
+  } catch (err) {
+    console.error("GET /api/metrics/:tenantId/top-customers error:", err);
+    res.status(500).json({ error: "Failed to compute top customers" });
+  }
+});
+
+/* ===============================================
+   6d. TOP PRODUCTS
+=============================================== */
+app.get("/api/metrics/:tenantId/top-products", async (req, res) => {
+  try {
+    const tenantId = Number(req.params.tenantId);
+
+    const products = await prisma.product.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        title: true,
+        price: true,
+      },
+    });
+
+    if (!products.length) {
+      return res.json([]);
+    }
+
+    const result = products
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: Number(p.price || 0),
+        imageUrl: null,
+      }))
+      .sort((a, b) => b.price - a.price)
+      .slice(0, 5);
+
+    res.json(result);
+  } catch (err) {
+    console.error("GET /api/metrics/:tenantId/top-products error:", err);
+    res.status(500).json({ error: "Failed to compute top products" });
+  }
+});
+
+/* ===============================================
    CRON JOB (every 10 mins)
 =============================================== */
 cron.schedule("*/10 * * * *", async () => {
   try {
+    console.log("Cron: syncing all tenants");
     const tenants = await prisma.tenant.findMany();
     for (const t of tenants) {
       const data = await fetchShopifyData(t.id);
@@ -265,7 +426,7 @@ cron.schedule("*/10 * * * *", async () => {
 });
 
 /* ===============================================
-   GRACEFUL SHUTDOWN (IMPORTANT FOR RAILWAY)
+   GRACEFUL SHUTDOWN (Railway)
 =============================================== */
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received. Closing Prisma...");
