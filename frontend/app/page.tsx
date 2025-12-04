@@ -14,7 +14,8 @@ import {
   Tooltip,
 } from "recharts";
 const API =
-  process.env.NEXT_PUBLIC_BACKEND_URL;
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "https://xeno-assignment-production-9fa6.up.railway.app";
 
 
 type Summary = {
